@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  cd1:
+    image: postgres:latest  # Use the official PostgreSQL image
+    container_name: cd1
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=CD
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Sree8985
+    ports:
+      - "5432:5432"
+
+  cdweb1:
+    build: .
+    container_name: cdweb1
+    command: >
+      sh -c "python manage.py makemigrations &&
+             python manage.py migrate &&
+             gunicorn --bind 0.0.0.0:8000 --workers 2 project.wsgi:application"
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=etGprHiyacvnRZtRTZ7E8365DMvIPRj7B7ire8F6pb9RQ4gP9kW1bBTcYKNnd4S9
+      - DATABASE_URL=postgresql://postgres:Lohi@590321@cd1:5432/CD
+    depends_on:
+      - cd1
