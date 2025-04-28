@@ -1,0 +1,89 @@
+---
+- name: Deploy Backend & Frontend
+  hosts: web
+  become: true
+
+  tasks:
+    - name: Update APT cache
+      apt:
+        update_cache: yes
+
+    - name: Add NodeSource repository for Node.js 18
+      shell: |
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+      args:
+        executable: /bin/bash
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+
+
+    - name: Install npm
+      apt:
+        name: npm
+        state: present
+
+    - name: Install PM2 globally
+      npm:
+        name: pm2
+        global: yes
+
+    - name: Add MongoDB GPG Key
+      get_url:
+        url: https://www.mongodb.org/static/pgp/server-6.0.asc
+        dest: /usr/share/keyrings/mongodb-server-6.0.gpg
+
+    - name: Add MongoDB APT Repository (Jammy repo works on Noble)
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse"
+        filename: "mongodb-org-6.0"
+        state: present
+
+    - name: Update APT cache after MongoDB repo added
+      apt:
+        update_cache: yes
+        force_apt_get: yes
+
+    - name: Install MongoDB
+      apt:
+        name: mongodb-org
+        state: present
+      ignore_errors: yes
+
+    - name: Start MongoDB service
+      service:
+        name: mongod
+        state: started
+        enabled: yes
+      ignore_errors: yes
+
+    - name: Clone Backend App
+      git:
+        repo: 'https://github.com/Kalyanapu-Lohitha/cddskillproject/tree/main/backendapp'
+        dest: /home/ubuntu/backendapp
+
+    - name: Install backend dependencies
+      npm:
+        path: /home/ubuntu/backendapp
+
+    - name: Start backend with PM2
+      command: pm2 start /home/ubuntu/backendapp/server.js --name backend
+
+    - name: Clone Frontend App
+      git:
+        repo: 'https://github.com/Kalyanapu-Lohitha/cddskillproject/tree/main/frontendapp'
+        dest: /home/ubuntu/frontendapp
+
+    - name: Install frontend dependencies
+      npm:
+        path: /home/ubuntu/frontendapp
+
+    - name: Build frontend
+      command: npm run build
+      args:
+        chdir: /home/ubuntu/frontendapp
+
+    - name: Serve frontend with PM2
+      command: pm2 serve /home/ubuntu/frontendapp/build 3000 --name frontend
